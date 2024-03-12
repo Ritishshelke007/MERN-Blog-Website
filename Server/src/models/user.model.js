@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -30,51 +30,49 @@ let profile_imgs_collections_list = [
   "fun-emoji",
 ];
 
-const userSchema = new mongoose.Schema(
+const userSchema = new Schema(
   {
-    personal_info: {
-      fullname: {
-        type: String,
-        required: true,
-        minlength: [3, "fullname must be 3 letters long"],
-      },
-      username: {
-        type: String,
-        minlength: [3, "Username must be 3 letters long"],
-        unique: true,
-        trim: true,
-        index: true,
-      },
-      email: {
-        type: String,
-        required: true,
-        lowercase: true,
-        unique: true,
-      },
-      password: {
-        type: String,
-        required: true,
-        minlength: [6, "Password must be at least 6 characters"],
-      },
+    fullname: {
+      type: String,
+      required: true,
+      minlength: [3, "fullname must be 3 letters long"],
+    },
+    username: {
+      type: String,
+      minlength: [3, "Username must be 3 letters long"],
+      unique: true,
+      trim: true,
+      index: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+      unique: true,
+    },
+    password: {
+      type: String,
+      required: true,
+      minlength: [6, "Password must be at least 6 characters"],
+    },
 
-      bio: {
-        type: String,
-        maxlength: [200, "Bio should not be more than 200"],
-        default: "",
-      },
-      profile_img: {
-        type: String,
-        default: () => {
-          return `https://api.dicebear.com/6.x/${
-            profile_imgs_collections_list[
-              Math.floor(Math.random() * profile_imgs_collections_list.length)
-            ]
-          }/svg?seed=${
-            profile_imgs_name_list[
-              Math.floor(Math.random() * profile_imgs_name_list.length)
-            ]
-          }`;
-        },
+    bio: {
+      type: String,
+      maxlength: [200, "Bio should not be more than 200"],
+      default: "",
+    },
+    profile_img: {
+      type: String,
+      default: () => {
+        return `https://api.dicebear.com/6.x/${
+          profile_imgs_collections_list[
+            Math.floor(Math.random() * profile_imgs_collections_list.length)
+          ]
+        }/svg?seed=${
+          profile_imgs_name_list[
+            Math.floor(Math.random() * profile_imgs_name_list.length)
+          ]
+        }`;
       },
     },
     social_links: {
@@ -119,7 +117,7 @@ const userSchema = new mongoose.Schema(
     },
     blogs: {
       type: [Schema.Types.ObjectId],
-      ref: "blogs",
+      ref: "Blog",
       default: [],
     },
     refreshToken: {
@@ -134,14 +132,16 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  try {
+    if (!this.isModified("password")) return next();
 
-  bcrypt.hash(this.password, 10, (error, hashedPassword) => {
-    if (error) return next(error);
-
+    const hashedPassword = await bcrypt.hash(this.password, 10);
     this.password = hashedPassword;
-    next();
-  });
+
+    return next();
+  } catch (error) {
+    return next(error);
+  }
 });
 
 userSchema.methods.isPasswordCorrect = async function (password) {

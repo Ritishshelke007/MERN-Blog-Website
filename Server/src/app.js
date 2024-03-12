@@ -13,4 +13,9 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// import routes
+import userRouter from "./routes/user.routes.js";
+
+// routes declaration
+app.use("/api/auth", userRouter);
 export { app };
