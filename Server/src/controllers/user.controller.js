@@ -1,6 +1,8 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
+import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -18,7 +20,7 @@ const generateAccessAndRefreshToken = async (userId) => {
 };
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { fullname, email, password } = req.body;
+  const { fullname, email, password, profile_img } = req.body;
 
   console.log(fullname);
 
@@ -33,15 +35,30 @@ const registerUser = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "User exists" });
   }
 
-  const userCreated = await User.create({
+  let profileImg;
+  if (req.files?.profile_img && req.files.profile_img.length > 0) {
+    const profile_imgLocalPath = req.files?.profile_img[0]?.path;
+
+    profileImg = await uploadFileOnCloudinary(profile_imgLocalPath);
+  }
+
+  const user = await User.create({
     fullname,
     email,
     password,
+    profile_img: profileImg?.url || profile_img,
   });
 
-  if (userCreated) {
-    return res.status(201).json({ message: "User created success" });
+  const createdUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+
+  if (!createdUser) {
+    throw new ApiError(500, "Something went wrong while registering");
   }
+  return res
+    .status(201)
+    .json(new ApiResponse(200, createdUser, "User registered successfully"));
 });
 
 const loginUser = asyncHandler(async (req, res) => {
