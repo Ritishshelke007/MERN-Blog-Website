@@ -4,6 +4,35 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import jwt from "jsonwebtoken";
+import fs from "fs";
+
+let profile_imgs_name_list = [
+  "Garfield",
+  "Tinkerbell",
+  "Annie",
+  "Loki",
+  "Cleo",
+  "Angel",
+  "Bob",
+  "Mia",
+  "Coco",
+  "Gracie",
+  "Bear",
+  "Bella",
+  "Abby",
+  "Harley",
+  "Cali",
+  "Leo",
+  "Luna",
+  "Jack",
+  "Felix",
+  "Kiki",
+];
+let profile_imgs_collections_list = [
+  "notionists-neutral",
+  "adventurer-neutral",
+  "fun-emoji",
+];
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -21,33 +50,57 @@ const generateAccessAndRefreshToken = async (userId) => {
 };
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { fullname, email, password, profile_img } = req.body;
+  const { username, fullname, email, password, profile_img } = req.body;
 
-  console.log(fullname);
+  // console.log(fullname);
 
-  if ([fullname, email, password].some((field) => field?.trim() === "")) {
+  if (
+    [username, fullname, email, password].some((field) => field?.trim() === "")
+  ) {
     //  return res.status(400).json({ message: "All fields are required" });
     throw new ApiError(400, "All fields are required");
   }
 
-  const userExist = await User.findOne({ email });
+  const userExist = await User.findOne({ $or: [{ username }, { email }] });
+
+  let profile_imgLocalPath;
 
   if (userExist) {
-    return res.status(400).json({ message: "User exists" });
+    if (req.files.profile_img && req.files.profile_img.length > 0) {
+      profile_imgLocalPath = req.files.profile_img[0].path;
+      console.log(profile_imgLocalPath);
+      fs.unlinkSync(profile_imgLocalPath);
+    }
+    throw new ApiError(401, "User already exists");
   }
 
-  let profileImg;
-  if (req.files?.profile_img && req.files.profile_img.length > 0) {
-    const profile_imgLocalPath = req.files?.profile_img[0]?.path;
+  let profileImgUrl;
+  if (!userExist) {
+    if (req.files.profile_img && req.files.profile_img.length > 0) {
+      profile_imgLocalPath = req.files.profile_img[0].path;
+      console.log(profile_imgLocalPath);
+      const profileImg = await uploadFileOnCloudinary(profile_imgLocalPath);
+      profileImgUrl = profileImg?.url;
+    } else {
+      // If profile image is not provided, set default profile image URL
 
-    profileImg = await uploadFileOnCloudinary(profile_imgLocalPath);
+      profileImgUrl = `https://api.dicebear.com/6.x/${
+        profile_imgs_collections_list[
+          Math.floor(Math.random() * profile_imgs_collections_list.length)
+        ]
+      }/svg?${
+        profile_imgs_name_list[
+          Math.floor(Math.random() * profile_imgs_name_list.length)
+        ]
+      }`;
+    }
   }
 
   const user = await User.create({
     fullname,
     email,
     password,
-    profile_img: profileImg?.url || profile_img,
+    profile_img: profileImgUrl,
   });
 
   const createdUser = await User.findById(user._id).select(
