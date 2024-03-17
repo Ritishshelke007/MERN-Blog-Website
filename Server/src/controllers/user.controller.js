@@ -101,6 +101,7 @@ const registerUser = asyncHandler(async (req, res) => {
     email,
     password,
     profile_img: profileImgUrl,
+    username,
   });
 
   const createdUser = await User.findById(user._id).select(
@@ -116,17 +117,17 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 const loginUser = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { username, email, password } = req.body;
 
-  if (!email) {
-    throw new ApiError(400, "email is required");
+  if (!(username || email)) {
+    throw new ApiError(400, "username or email is required");
   }
 
   if (!password) {
     throw new ApiError(400, "Password is required");
   }
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ $or: [{ username }, { email }] });
 
   if (!user) {
     throw new ApiError(404, "User does not exist");
